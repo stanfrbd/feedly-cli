@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "feedly-cli"
+version = "0.1.0"
+description = "A small, scriptable command-line client for the Feedly API"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "feedly-cli contributors" }]
+keywords = ["feedly", "cli", "news", "api"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = ["feedly-client>=0.27,<0.28", "rich>=13,<15", "markdownify>=1,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "responses>=0.25,<1", "build>=1", "ruff==0.15.5", "pre-commit>=4,<5"]
+
+[project.urls]
+Repository = "https://github.com/stanfrbd/feedly-cli"
+Issues = "https://github.com/stanfrbd/feedly-cli/issues"
+
+[project.scripts]
+feedly = "feedly_cli.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
