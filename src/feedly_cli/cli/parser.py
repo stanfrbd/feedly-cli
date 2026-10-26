@@ -22,6 +22,12 @@ class Parser(argparse.ArgumentParser):
             help="write machine-readable JSON (JSON Lines for board watch)",
         )
         self.add_argument(
+            "--details",
+            action="store_true",
+            default=argparse.SUPPRESS,
+            help="show article URLs, entry IDs and board labels in the human-readable output",
+        )
+        self.add_argument(
             "--markdown",
             action="store_true",
             default=argparse.SUPPRESS,

@@ -77,7 +77,7 @@ def test_search_all_fetch_cli_dispatch(run_cli, client):
     )
 
 
-def test_human_search_default_includes_copyable_metadata(monkeypatch, capsys, client):
+def test_human_search_details_include_copyable_metadata(monkeypatch, capsys, client):
     client.search.return_value = {
         "items": [
             {
@@ -91,7 +91,7 @@ def test_human_search_default_includes_copyable_metadata(monkeypatch, capsys, cl
         "continuation": "next-page-token",
     }
     monkeypatch.setattr(cli.app, "create_client", lambda: client)
-    assert cli.main(["search", "PHP2Shell"]) == 0
+    assert cli.main(["search", "PHP2Shell", "--details"]) == 0
     captured = capsys.readouterr()
     for value in (
         "PHP2Shell research",
@@ -104,6 +104,16 @@ def test_human_search_default_includes_copyable_metadata(monkeypatch, capsys, cl
         assert value in captured.out
     assert not captured.err
     client.profile.assert_not_called()
+
+
+def test_details_flag_does_not_change_json(monkeypatch, capsys, client):
+    data = {"items": [{"id": "a", "title": "PHP2Shell"}], "continuation": "next"}
+    client.search.return_value = data
+    monkeypatch.setattr(cli.app, "create_client", lambda: client)
+    assert cli.main(["search", "PHP2Shell", "--json", "--details"]) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == data
+    assert not captured.err
 
 
 def test_vulnerability_search_raw_body_and_pagination(run_cli, client, tmp_path):

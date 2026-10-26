@@ -52,8 +52,13 @@ def render(
         lowered not in {"folders", "feeds", "boards"}
         or (lowered == "boards" and action in {"read", "watch"})
     ):
+        render_articles(
+            items,
+            stream,
+            include_body=(lowered == "articles" and action == "get"),
+            details=bool(context.get("details")),
+        )
         render_article_summary(value, items, stream)
-        render_articles(items, stream, include_body=(lowered == "articles" and action == "get"))
         return
     if (
         isinstance(value, list)

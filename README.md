@@ -46,6 +46,7 @@ Commands display readable tables or detail views by default. Pass `--json` for t
 
 ```sh
 feedly search 'PHP2Shell'
+feedly search 'PHP2Shell' --details
 feedly search 'PHP2Shell' --all --fetch --json > articles.json
 feedly --json boards list
 ```
@@ -131,7 +132,7 @@ feedly boards add-entry 'user/USER_ID/tag/BOARD_ID' 'ENTRY_ID'
 
 ## Output and exit codes
 
-Human output includes available titles, dates, sources, IDs, URLs and board labels. Rendering does not make additional API requests. Board membership is shown only when included in Feedly's response. Narrow terminals use detail views to keep IDs and URLs accessible.
+Article lists show a compact table with titles, sources and publication dates. Use `--details` to show each article with its full URL, entry ID and available board labels together. `articles get` always displays article details and available content. Rendering does not make additional API requests. Board membership is shown only when included in Feedly's response. Narrow terminals use a vertical layout. JSON and Markdown output are unaffected by `--details`.
 
 Use `--json` explicitly in scripts and agent instructions. JSON output preserves API data without terminal formatting. Errors are written to stderr as readable messages by default, or with this structure when `--json` is set:
 
