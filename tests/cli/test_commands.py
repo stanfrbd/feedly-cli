@@ -63,8 +63,15 @@ def test_search_options_forwarded(run_cli, client):
     )
     assert code == 0 and not err
     client.search.assert_called_once_with(
-        "security", count=3, continuation="next", stream_id="source"
+        "security", count=3, continuation="next", stream_id="source", salience="mention"
     )
+
+
+def test_search_salience_forwarded(run_cli, client):
+    client.search.return_value = {"items": []}
+    code, _, err = run_cli(["search", "php2shell", "--salience", "about"])
+    assert code == 0 and not err
+    assert client.search.call_args.kwargs["salience"] == "about"
 
 
 def test_search_all_fetch_cli_dispatch(run_cli, client):
@@ -73,8 +80,41 @@ def test_search_all_fetch_cli_dispatch(run_cli, client):
     assert code == 0 and not err
     assert json.loads(out)["pages"] == 2
     client.search_all.assert_called_once_with(
-        "PHP2Shell", count=1, max_pages=100, stream_id=None, fetch=True
+        "PHP2Shell", count=1, max_pages=100, stream_id=None, fetch=True, salience="mention"
     )
+
+
+def test_brief_json_drops_article_bodies(run_cli, client):
+    client.search.return_value = {
+        "items": [{"id": "a", "title": "T", "fullContent": {"content": "<p>body</p>"}}],
+        "continuation": "next",
+    }
+    code, out, err = run_cli(["search", "php2shell", "--brief"])
+    assert code == 0 and not err
+    assert json.loads(out) == {"items": [{"id": "a", "title": "T"}], "continuation": "next"}
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["search", "x", "--brief"],
+        ["--json", "--markdown", "search", "x", "--brief"],
+        ["--json", "profile", "--brief"],
+    ],
+)
+def test_brief_rejects_unsupported_combinations(monkeypatch, client, argv):
+    monkeypatch.setattr(cli.app, "create_client", lambda: client)
+    assert cli.main(argv) == 2
+    client.search.assert_not_called()
+
+
+def test_human_search_shows_entry_id_by_default(monkeypatch, capsys, client):
+    client.search.return_value = {"items": [{"id": "entry/default-id", "title": "PHP2Shell"}]}
+    monkeypatch.setattr(cli.app, "create_client", lambda: client)
+    assert cli.main(["search", "PHP2Shell"]) == 0
+    captured = capsys.readouterr()
+    assert "Entry ID: entry/default-id" in captured.out
+    assert not captured.err
 
 
 def test_human_search_details_include_copyable_metadata(monkeypatch, capsys, client):

@@ -45,13 +45,18 @@ def main(argv: list[str] | None = None) -> int:
     json_output = _request_json(argv)
     client: FeedlyClient | None = None
     try:
-        args = build_parser().parse_args(
-            argv,
-            namespace=argparse.Namespace(json=False, markdown=False),
-        )
+        parser_args = argparse.Namespace(json=False, markdown=False, brief=False)
+        args = build_parser().parse_args(argv, namespace=parser_args)
         json_output = args.json
         if args.markdown and not getattr(args, "supports_markdown", False):
             raise InputError("--markdown is supported for article, search and stream results only")
+        if args.brief:
+            if not getattr(args, "supports_markdown", False):
+                raise InputError("--brief is supported for article, search and stream results only")
+            if not (args.json or args.markdown):
+                raise InputError("--brief requires --json or --markdown")
+            if args.json and args.markdown:
+                raise InputError("--brief cannot be combined with both --json and --markdown")
         validator = getattr(args, "validate", None)
         if validator is not None:
             validator(args)

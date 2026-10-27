@@ -29,6 +29,7 @@ class SearchAPI:
         continuation: str | None = None,
         *,
         stream_id: str | None = None,
+        salience: str = "mention",
     ) -> Any:
         params: dict[str, Any] = {"count": count}
         if continuation is not None:
@@ -40,7 +41,7 @@ class SearchAPI:
                 "layers": [
                     {
                         "type": "matches",
-                        "salience": "mention",
+                        "salience": salience,
                         "parts": [{"type": "customKeyword", "text": query}],
                     }
                 ]
@@ -59,6 +60,7 @@ class SearchAPI:
         max_pages: int = 100,
         stream_id: str | None = None,
         fetch: bool = False,
+        salience: str = "mention",
     ) -> Any:
         if not 1 <= count <= 100:
             raise FeedlyError("bad_request", "Search count must be between 1 and 100.")
@@ -71,7 +73,13 @@ class SearchAPI:
         envelope: dict[str, Any] | None = None
         pages = 0
         while True:
-            page = self.search(query, count=count, continuation=continuation, stream_id=stream_id)
+            page = self.search(
+                query,
+                count=count,
+                continuation=continuation,
+                stream_id=stream_id,
+                salience=salience,
+            )
             pages += 1
             if not isinstance(page, dict):
                 raise FeedlyError("api_error", "Feedly search returned an invalid page envelope.")

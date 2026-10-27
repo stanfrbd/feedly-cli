@@ -18,9 +18,12 @@ class StreamedOutput:
 
 def display(value: Any, args: argparse.Namespace) -> None:
     if args.json:
-        write_json(output.add_markdown(value) if args.markdown else value)
+        if args.brief:
+            write_json(output.brief(value))
+        else:
+            write_json(output.add_markdown(value) if args.markdown else value)
     elif args.markdown:
-        output.write_markdown(value)
+        output.write_markdown(value, include_content=not args.brief)
     else:
         action = next(
             (

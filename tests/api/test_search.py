@@ -25,6 +25,15 @@ def test_search_resource_posts_raw_query(client, api_http, add_api_response, dec
     assert decode_request_json(api_http.calls[0]) == payload
 
 
+def test_text_search_salience_is_sent_in_layer(
+    client, api_http, add_api_response, decode_request_json
+):
+    add_api_response(api_http, responses.GET, "/v3/profile", {"enterpriseName": "example"})
+    add_api_response(api_http, responses.POST, "/v3/search/contents", {"items": []})
+    client.search("php2shell", salience="about")
+    assert decode_request_json(api_http.calls[1])["layers"][0]["salience"] == "about"
+
+
 def test_text_search_derives_enterprise_global_stream(
     client, api_http, add_api_response, decode_request_json
 ):

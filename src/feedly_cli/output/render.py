@@ -11,7 +11,7 @@ from .article_data import article_items
 from .articles import render_article_summary, render_articles
 from .common import clean_text, create_console, literal, render_detail
 from .discovery import listing_items, render_listing, render_mutation
-from .vulnerabilities import render_vulnerabilities
+from .vulnerabilities import render_cve_details, render_vulnerabilities
 
 
 def render(
@@ -35,6 +35,12 @@ def render(
         render_listing(listing_items(value, lowered), lowered, stream)
         return
     if "cve" in lowered:
+        if isinstance(value, dict) and "cveid" in value:
+            render_cve_details([value], stream)
+            return
+        if items and all("cveid" in item for item in items):
+            render_cve_details(items, stream)
+            return
         if isinstance(value, dict) and isinstance(value.get("memes"), list):
             render_vulnerabilities(
                 [item for item in value["memes"] if isinstance(item, dict)], stream

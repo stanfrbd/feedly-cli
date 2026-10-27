@@ -11,7 +11,8 @@ from bs4 import BeautifulSoup
 from markdownify import markdownify
 
 from .article_data import article_items, article_url, articles_from_response, source_name
-from .common import clean_text, format_date, pick
+from .common import clean_line, clean_text, format_date, pick
+from .threat import describe_cve, threat_intel
 
 
 def _content_text(value: Any) -> str:
@@ -80,8 +81,11 @@ def article_markdown(article: dict[str, Any]) -> tuple[str, str]:
     )
 
 
-def write_markdown(value: Any, stream: Any = None) -> None:
-    """Write one or more articles as Markdown, retaining lists and links."""
+def write_markdown(value: Any, stream: Any = None, *, include_content: bool = True) -> None:
+    """Write one or more articles as Markdown, retaining lists and links.
+
+    With ``include_content=False`` only the metadata and threat facts are written.
+    """
     if stream is None:
         stream = sys.stdout
     items = article_items(value)
@@ -107,7 +111,7 @@ def write_markdown(value: Any, stream: Any = None) -> None:
         url = clean_text(article_url(article))
         published = clean_text(format_date(pick(article, "published", "publishedDate", "crawled")))
         source = clean_text(source_name(article))
-        metadata = [f"- Content source: {fmt}"]
+        metadata = [f"- Content source: {fmt}"] if include_content else []
         if source:
             metadata.append(f"- Source: {source}")
         if entry_id:
@@ -116,8 +120,23 @@ def write_markdown(value: Any, stream: Any = None) -> None:
             metadata.append(f"- URL: {url}")
         if published:
             metadata.append(f"- Published: {published}")
-        body = content_md or "_(No Feedly content available.)_"
-        documents.append(f"# {title}\n\n" + "\n".join(metadata) + f"\n\n{body}")
+        intel = threat_intel(article)
+        if intel["cves"]:
+            metadata.append("- CVEs: " + ", ".join(describe_cve(cve) for cve in intel["cves"]))
+        for label, key in (
+            ("Malware", "malware"),
+            ("Threat actors", "threatActors"),
+            ("ATT&CK", "techniques"),
+        ):
+            if intel[key]:
+                metadata.append(f"- {label}: " + ", ".join(clean_text(name) for name in intel[key]))
+        if intel["summary"]:
+            metadata.append(f"- Summary: {clean_line(intel['summary'])}")
+        if include_content:
+            body = content_md or "_(No Feedly content available.)_"
+            documents.append(f"# {title}\n\n" + "\n".join(metadata) + f"\n\n{body}")
+        else:
+            documents.append(f"# {title}\n\n" + "\n".join(metadata))
     stream.write("\n\n---\n\n".join(documents).rstrip() + "\n")
     if isinstance(value, dict) and value.get("pages") is not None:
         stream.write(f"\nPages fetched: {clean_text(value['pages'])}\n")

@@ -28,6 +28,13 @@ class Parser(argparse.ArgumentParser):
             help="show article URLs, entry IDs and board labels in the human-readable output",
         )
         self.add_argument(
+            "--brief",
+            action="store_true",
+            default=argparse.SUPPRESS,
+            help="with --json emit only IDs, URLs and threat facts per article; "
+            "with --markdown omit article bodies",
+        )
+        self.add_argument(
             "--markdown",
             action="store_true",
             default=argparse.SUPPRESS,

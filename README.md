@@ -62,7 +62,7 @@ feedly boards read BOARD_ID [--count N] [--continuation TOKEN]
 feedly boards watch BOARD_ID [--interval SECONDS] [--iterations N] [--count N] [--max-pages N]
 feedly boards add-url BOARD_ID URL [--source-stream STREAM_ID] [--max-pages N] [--count N] [--dry-run]
 feedly boards add-entry BOARD_ID ENTRY_ID
-feedly search QUERY [--all] [--fetch] [--count N] [--max-pages N] [--continuation TOKEN] [--stream-id STREAM_ID]
+feedly search QUERY [--all] [--fetch] [--salience mention|about] [--count N] [--max-pages N] [--continuation TOKEN] [--stream-id STREAM_ID]
 feedly search --query-file request.json [--count N] [--continuation TOKEN]
 feedly cve CVE_ID
 feedly cves get CVE_ID [CVE_ID ...]
@@ -132,7 +132,34 @@ feedly boards add-entry 'user/USER_ID/tag/BOARD_ID' 'ENTRY_ID'
 
 ## Output and exit codes
 
-Article lists show a compact table with titles, sources and publication dates. Use `--details` to show each article with its full URL, entry ID and available board labels together. `articles get` always displays article details and available content. Rendering does not make additional API requests. Board membership is shown only when included in Feedly's response. Narrow terminals use a vertical layout. JSON and Markdown output are unaffected by `--details`.
+Article lists show one block per article with its source, publication date, **entry ID** and any CVEs Feedly linked to it (with CVSS, exploit and patch flags), so an ID can be copied straight into `articles get` or `boards add-entry`. Use `--details` to add the URL, board labels, malware, threat actors, ATT&CK techniques, indicator count and Feedly's AI summary. `articles get` always displays those details plus the article content. `cve` and `cves get` show a readable CVE summary (CVSS, EPSS, exploitation, weaknesses, affected products, patch status); use `--json` for every field. Rendering does not make additional API requests. Board membership is shown only when included in Feedly's response. JSON output is unaffected by `--details`.
+
+| Mode | Flags | Use it for |
+|---|---|---|
+| Human-readable | _(default)_, `--details` | Reading in a terminal |
+| JSON | `--json` | Scripts; the full Feedly response (large: about 10 KB per article) |
+| Brief JSON | `--json --brief` | Agents; per article only `id`, `title`, `url`, `source`, `published`, `cves`, `malware`, `threatActors`, `techniques`, `summary`, `iocCount`; the response envelope (`continuation`, `pages`) is kept |
+| Markdown | `--markdown` | Article text and threat facts in an agent context or file |
+| Brief Markdown | `--markdown --brief` | Metadata and threat facts only, without article bodies |
+
+`--brief` applies to article, search, stream and board results.
+
+### Identifying a specific threat (agent workflow)
+
+Search is broad: by default Feedly returns every article that merely *mentions* the term. An agent identifying one threat (for example `PHP2Shell`) can narrow it down in three read-only steps:
+
+```sh
+# 1. Find the articles that are about the threat; each result has an ID, CVEs and a summary.
+feedly search 'PHP2Shell' --salience about --count 10 --json --brief
+
+# 2. Read the most relevant article in full, using its "id" from step 1.
+feedly articles get 'ENTRY_ID' --markdown
+
+# 3. Look up each CVE listed in step 1 for CVSS, EPSS, exploit and patch status.
+feedly cves get CVE-2026-109618 CVE-2026-109619 --json
+```
+
+`--salience about` keeps articles centred on the query and drops passing mentions (`--salience mention`, the default, keeps both). It applies to text queries; put `salience` in the JSON body when using `--query-file`. If `continuation` is present in the response, pass it to `--continuation` for the next page. Entry IDs contain `/`, `=` and `:` characters, so quote them in the shell.
 
 Use `--json` explicitly in scripts and agent instructions. JSON output preserves API data without terminal formatting. Errors are written to stderr as readable messages by default, or with this structure when `--json` is set:
 

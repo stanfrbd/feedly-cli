@@ -68,7 +68,13 @@ def main() -> int:
     run("cves", "trending", "--count", "1")
     run("search", "ransomware")
     run("search", "PHP2Shell", "--all", "--fetch")
-    run("search", "PHP2Shell", "--count", "1", text_output=True)
+    listing = run("search", "PHP2Shell", "--count", "1", text_output=True)
+    if "Entry ID:" not in listing:
+        raise RuntimeError("search: default text output is missing the entry ID")
+    found = run("search", "PHP2Shell", "--count", "3", "--salience", "about", "--brief")
+    if not found.get("items") or any("id" not in article for article in found["items"]):
+        raise RuntimeError("search: brief JSON output is missing article IDs")
+    run("articles", "get", found["items"][0]["id"], "--markdown", "--brief", text_output=True)
     run("search", "PHP2Shell", "--count", "1", "--fetch", "--markdown", text_output=True)
     converted = run("search", "PHP2Shell", "--count", "1", "--fetch", "--markdown")
     if any("contentMarkdown" not in article for article in converted.get("items", [])):
