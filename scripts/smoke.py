@@ -183,6 +183,9 @@ def main() -> int:
                 None,
             )
             if url:
+                resolved = run("articles", "resolve-url", url, "--source-stream", board)
+                if resolved.get("entryId") != entry["id"] or resolved.get("url") != url:
+                    raise RuntimeError("articles resolve-url: ID/URL mismatch")
                 run("boards", "add-url", board, url, "--stream-id", board, "--dry-run")
     else:
         print("SKIP board-dependent checks: account has no boards")

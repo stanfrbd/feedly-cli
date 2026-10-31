@@ -56,6 +56,7 @@ feedly profile
 feedly folders list
 feedly feeds list
 feedly articles get ENTRY_ID
+feedly articles resolve-url URL [--source-stream STREAM_ID] [--count N] [--max-pages N] [--continuation TOKEN]
 feedly streams read STREAM_ID [--count N] [--continuation TOKEN] [--unread-only]
 feedly boards list
 feedly boards read BOARD_ID [--count N] [--continuation TOKEN]
@@ -126,6 +127,96 @@ feedly search 'PHP2Shell' --all --fetch --json --markdown > articles.json
 
 Combined with `--json`, it retains the response structure and adds `contentMarkdown` and `contentFormat` to each article. `contentFormat` indicates `content`, `summary`, or `unavailable`. HTML headings, links, lists and code blocks are converted to Markdown. The command uses content already supplied by Feedly and does not download publisher pages; a summary stays a summary. Markdown conversion does not imply `--fetch`, so use both flags when you want full entry lookup.
 
+### Resolve a publisher URL to a Feedly entry
+
+`articles resolve-url` scans an indexed stream without requiring a board or changing account data. It returns `entryId`, `url`, `streamId` and `pagesScanned` with `--json`; terminal output shows complete, copyable values. The default source is the account's enterprise global stream. Use `--source-stream` (alias `--stream-id`) for a specific feed, folder or board; accounts without an enterprise default must supply a source.
+
+```sh
+feedly articles resolve-url 'https://www.sophos.com/en-us/blog/chaos-in-teams-vishing' --json
+feedly articles resolve-url 'https://www.sophos.com/en-us/blog/chaos-in-teams-vishing' --source-stream 'feed/https://blogs.sophos.com/feed/' --json
+feedly articles resolve-url 'https://thehackernews.com/2026/10/attackers-use-microsoft-teams-it.html' --source-stream 'feed/http://thehackernews.com/feeds/posts/default' --json
+feedly articles resolve-url 'https://example.com/article' --source-stream 'feed/https://example.com/rss.xml' --max-pages 20 --count 100 --json
+feedly articles get 'ENTRY_ID' --markdown
+```
+
+The publisher-specific Sophos and The Hacker News examples were resolved in read-only live checks. The Hacker News (`thehackernews.com`) is a different publisher from Hacker News (`news.ycombinator.com`); use the correct indexed source. A focused source avoids scanning unrelated global-stream entries but is still subject to indexing/history and page limits.
+
+Matching is exact against Feedly's `canonicalUrl`, `url` or `alternate.href`. The command does not follow redirects, remove tracking parameters, normalize trailing slashes, fetch publisher pages, ingest a URL or fabricate an entry ID. Defaults are 100 entries per page and at most 10 pages; each option is bounded to 1–100.
+
+**URL edge-case policy:** valid absolute HTTP(S) URLs/IRIs are required. Invalid hosts/ports/percent escapes, raw whitespace/control characters, URL user credentials, non-HTTP schemes and relative URLs are rejected before CLI authentication; errors do not echo rejected URLs. Unicode DNS names/paths and bracketed IPv6 are accepted, but IPv6 zone identifiers and percent-encoded hostnames are unsupported. Encode reserved characters where required (for example `array%5B%5D=x`, not raw brackets outside the IPv6 host).
+
+Exact spelling remains the identity: query order, repeated parameters, blank values, tracking parameters, fragments, percent encodings, path case, scheme/host spelling, IDNA versus Unicode, default ports and slash variants are **not** collapsed. Even RFC-permitted syntactic normalization is not performed in this mode. A URL with `?id=42` must never silently resolve to a different article with `?id=43`. A tracking or redirect URL resolves only when Feedly explicitly lists that exact URL as a canonical/alternate link. [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986.html#section-6) discusses comparison/normalization; [RFC 6596](https://www.rfc-editor.org/rfc/rfc6596) makes canonical preference publisher-provided, not something inferred by dropping query strings.
+
+Multiple distinct entry IDs matching the exact URL **on the scanned page** cause an explicit ambiguity error; repeated copies of the same ID are harmless. Successful resolution stops at the first matching page and does not certify global uniqueness across unscanned pages or streams. Choose a publisher feed or narrower source for deterministic resolution. Empty intermediate pages are followed if they contain a continuation; malformed articles/pages, invalid IDs and continuation cycles fail rather than appearing as no match.
+
+An exhausted source with no exact match returns `not_found` (exit 4), not a claim of global absence from Feedly. Reaching `--max-pages` while a continuation remains returns an **incomplete scan error** (`api_error`, exit 6), not “not found.” Use `--json` to obtain `error.details.continuation`, then repeat with the **same URL and source stream** plus `--continuation TOKEN`. If needed specify the default source's `error.details.streamId` explicitly. Page counts are per invocation, including resumed scans. Invalid API pages or repeated continuations fail explicitly. The command is a resolution record, not article content: `--markdown` and `--brief` are not supported; use `articles get` with the returned entry ID for those formats.
+
+### Construct filtered searches for AI agents
+
+Text queries become one Feedly `customKeyword` part; multiword text such as `feedly search 'Microsoft Teams'` is sent as one keyword/phrase value, not parsed as SQL or a local Boolean expression. For explicit combinations use `--query-file`: **different layers are AND; parts within a layer are OR**, as documented in [Feedly's search guide](https://developers.feedly.com/docs/using-the-search-api). Do not assume literal `AND`, `OR`, dates or `site:` text in a positional query is interpreted as CLI filter syntax.
+
+This complete request searches **(vishing OR phishing) AND Microsoft Teams**:
+
+```json
+{
+  "layers": [
+    {
+      "type": "matches",
+      "salience": "mention",
+      "parts": [
+        {"type": "customKeyword", "text": "vishing"},
+        {"type": "customKeyword", "text": "phishing"}
+      ]
+    },
+    {
+      "type": "matches",
+      "salience": "mention",
+      "parts": [
+        {"type": "customKeyword", "text": "Microsoft Teams"}
+      ]
+    }
+  ]
+}
+```
+
+Save it as `query.json`, then combine server-side keyword matching with **local publication-date bounds**, exhaustive bounded pagination and metadata hydration:
+
+```sh
+feedly search --query-file query.json --since 2026-10-01 --before 2026-11-01 --all --fetch --json --brief
+cat query.json | feedly search --query-file - --all --json
+```
+
+PowerShell stdin equivalent:
+
+```powershell
+Get-Content -Raw query.json | feedly search --query-file - --all --json
+```
+
+To constrain a text query's source use `--stream-id STREAM_ID`. With a JSON query, include the source in the body instead (`--stream-id` is rejected with `--query-file`):
+
+```json
+{
+  "layers": [
+    {
+      "type": "matches",
+      "salience": "about",
+      "parts": [{"type": "customKeyword", "text": "vishing"}]
+    }
+  ],
+  "source": {
+    "items": [{"type": "stream", "id": "feed/https://example.com/rss.xml"}]
+  }
+}
+```
+
+Replace the example feed ID with an indexed source you can access, or use a returned board/folder stream ID. Text queries default to the discovered enterprise global source; **query-file bodies are sent unchanged**, so an omitted `source` uses Feedly's API/account scope rather than the CLI-injected text-query default.
+
+`--salience about` applies to text queries only; use `"salience": "about"` inside each JSON layer for title/about-focused matches rather than passing `--salience about` alongside `--query-file`. `mention` searches article content and permits passing mentions. Feedly's guide describes `about` as title-focused; semantic matching and result availability are still Feedly-controlled.
+
+For advanced entity/model filters, obtain documented entity IDs or a query exported from Feedly's relevant API-enabled UI; do not substitute labels or invent `filters` structures. The [search guide](https://developers.feedly.com/docs/using-the-search-api) verifies keyword layers and sources; [Ask AI](https://developers.feedly.com/reference/search-ask-ai) and [Vulnerability Agent](https://developers.feedly.com/reference/vulnerability-agent) use different request contracts and may require additional entitlements. Their attachments/dashboard filters are not interchangeable with content search layers.
+
+For agents requiring completeness, keep `--all` and handle nonzero exits instead of interpreting the first `--count` page as the whole range. `--fetch` retrieves Feedly entry metadata only; `--json --brief` is compact triage with explicit `iocStatus`, while raw `--json` retains all returned evidence. Use the same query file/date bounds/source when resuming a continuation.
+
 ### Watching a board
 
 `boards watch` polls immediately, drains board pagination up to `--max-pages`, then waits for the configured interval. It displays newly seen articles on each poll. With `--json`, it emits one JSON object per poll (JSON Lines), with already-seen item IDs omitted on later polls. If more pages remain after the page bound, the command reports an error rather than silently skipping entries. The default interval is 60 seconds. By default it runs until interrupted; `--iterations N` bounds the number of polls. Ctrl+C stops the watch cleanly.
@@ -136,7 +227,7 @@ feedly boards watch 'user/USER_ID/tag/BOARD_ID' --interval 30 --iterations 5
 
 ### Adding a URL to a board
 
-Adding a URL scans an indexed Feedly source stream for an exact URL match, then adds that article to the selected board. It does not ingest arbitrary URLs from the web. The default source is Feedly's enterprise global stream; `--source-stream` (alias `--stream-id`) selects another stream. `--max-pages` bounds the scan, and `--dry-run` resolves the article without changing the board. `boards add-entry` adds an already-known Feedly entry ID directly.
+Adding a URL uses the same exact-match bounded resolver as `articles resolve-url`, then adds that article to the selected board. It does not ingest arbitrary URLs from the web. The default source is the global stream derived from the board ID, falling back to the account enterprise global stream; `--source-stream` (alias `--stream-id`) selects another stream. `--max-pages` bounds the scan, and `--dry-run` resolves the article without changing the board. An incomplete scan is an error, not “not found”; `boards add-url` preserves its existing dry-run JSON shape. `boards add-entry` adds an already-known Feedly entry ID directly.
 
 ```sh
 feedly boards add-url 'user/USER_ID/tag/BOARD_ID' 'https://example.com/article' --dry-run

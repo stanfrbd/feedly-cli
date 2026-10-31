@@ -10,6 +10,7 @@ from feedly_cli.errors import FeedlyError
 from .discovery import DiscoveryAPI
 from .streams import StreamAPI
 from .transport import APITransport
+from .url_resolution import resolve_url, validate_url
 
 
 class BoardAPI:
@@ -85,6 +86,7 @@ class BoardAPI:
         max_pages: int = 10,
         count: int = 100,
     ) -> Any:
+        validate_url(url)
         source_stream = (
             stream_id
             or _global_stream_for_board(board_id)
@@ -95,51 +97,11 @@ class BoardAPI:
                 "bad_request",
                 "Pass an enterprise or personal board ID, or provide stream_id for URL resolution.",
             )
-        if not 1 <= max_pages <= 100 or not 1 <= count <= 100:
-            raise FeedlyError(
-                "bad_request", "URL scan count and max_pages must each be between 1 and 100."
-            )
-        continuation = None
-        entry_id = None
-        pages_scanned = 0
-        for _ in range(max_pages):
-            page = self.streams.contents(source_stream, count=count, continuation=continuation)
-            pages_scanned += 1
-            items = page.get("items", []) if isinstance(page, dict) else []
-            entry_id = next(
-                (
-                    item.get("id")
-                    for item in items
-                    if isinstance(item, dict) and _entry_matches_url(item, url)
-                ),
-                None,
-            )
-            if entry_id:
-                break
-            continuation = page.get("continuation") if isinstance(page, dict) else None
-            if not continuation:
-                break
-        if not entry_id:
-            raise FeedlyError(
-                "not_found",
-                f"No exact URL match was found in the first {max_pages} pages "
-                "of the selected Feedly stream.",
-                status=404,
-                details={"url": url, "streamId": source_stream, "pagesScanned": pages_scanned},
-            )
+        resolved = resolve_url(self.streams, source_stream, url, count=count, max_pages=max_pages)
+        entry_id = resolved["entryId"]
         if dry_run:
             return {"boardId": board_id, "entryId": entry_id, "url": url, "dryRun": True}
         return self.add_entry(board_id, entry_id)
-
-
-def _entry_matches_url(item: dict[str, Any], url: str) -> bool:
-    candidates = [item.get("canonicalUrl"), item.get("url")]
-    alternates = item.get("alternate")
-    if isinstance(alternates, dict):
-        candidates.append(alternates.get("href"))
-    elif isinstance(alternates, list):
-        candidates.extend(value.get("href") for value in alternates if isinstance(value, dict))
-    return url in candidates
 
 
 def _global_stream_for_board(board_id: str) -> str | None:

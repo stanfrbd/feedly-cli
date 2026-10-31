@@ -5,12 +5,22 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from ..cli.arguments import positive_int
+from ..cli.arguments import bounded_positive_int, http_url, positive_int
 from ..client import FeedlyClient
 
 
 def _get_article(args: argparse.Namespace, client: FeedlyClient) -> Any:
     return client.entry(args.id)
+
+
+def _resolve_url(args: argparse.Namespace, client: FeedlyClient) -> Any:
+    return client.resolve_article_url(
+        args.url,
+        stream_id=args.source_stream,
+        count=args.count,
+        max_pages=args.max_pages,
+        continuation=args.continuation,
+    )
 
 
 def _read_stream(args: argparse.Namespace, client: FeedlyClient) -> Any:
@@ -23,13 +33,37 @@ def _read_stream(args: argparse.Namespace, client: FeedlyClient) -> Any:
 
 
 def register(commands: argparse._SubParsersAction) -> None:
-    articles = commands.add_parser("articles", help="retrieve a Feedly article")
+    articles = commands.add_parser("articles", help="retrieve articles or resolve publisher URLs")
     article_actions = articles.add_subparsers(
         dest="articles_command", required=True, parser_class=type(articles)
     )
     article_get = article_actions.add_parser("get", help="retrieve an article by ID")
     article_get.add_argument("id", help="Feedly article ID")
     article_get.set_defaults(handler=_get_article, supports_markdown=True)
+    article_resolve = article_actions.add_parser(
+        "resolve-url", help="resolve an indexed publisher URL without changing account data"
+    )
+    article_resolve.add_argument("url", type=http_url, help="exact publisher URL to resolve")
+    article_resolve.add_argument(
+        "--source-stream",
+        "--stream-id",
+        dest="source_stream",
+        help="indexed stream to scan (default: enterprise global stream)",
+    )
+    article_resolve.add_argument(
+        "--count",
+        type=bounded_positive_int(100),
+        default=100,
+        help="entries per source page, up to 100 (default: 100)",
+    )
+    article_resolve.add_argument(
+        "--max-pages",
+        type=bounded_positive_int(100),
+        default=10,
+        help="maximum source pages to scan, up to 100 (default: 10)",
+    )
+    article_resolve.add_argument("--continuation", help="resume an incomplete scan")
+    article_resolve.set_defaults(handler=_resolve_url)
 
     streams = commands.add_parser("streams", help="read a Feedly stream")
     stream_actions = streams.add_subparsers(
