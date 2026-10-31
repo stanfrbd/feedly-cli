@@ -11,7 +11,9 @@ from .api.discovery import DiscoveryAPI
 from .api.search import SearchAPI
 from .api.streams import StreamAPI
 from .api.transport import DEFAULT_API_BASE, DEFAULT_TIMEOUT, APITransport
+from .api.url_resolution import resolve_url
 from .api.vulnerabilities import VulnerabilityAPI
+from .errors import FeedlyError
 
 
 class FeedlyClient:
@@ -68,6 +70,30 @@ class FeedlyClient:
 
     def entry(self, entry_id: str) -> Any:
         return self._article_api.entry(entry_id)
+
+    def resolve_article_url(
+        self,
+        url: str,
+        *,
+        stream_id: str | None = None,
+        count: int = 100,
+        max_pages: int = 10,
+        continuation: str | None = None,
+    ) -> dict[str, Any]:
+        source_stream = stream_id or self._discovery_api.default_enterprise_stream()
+        if not source_stream:
+            raise FeedlyError(
+                "bad_request",
+                "Provide --source-stream for URL resolution without an enterprise default stream.",
+            )
+        return resolve_url(
+            self._stream_api,
+            source_stream,
+            url,
+            count=count,
+            max_pages=max_pages,
+            continuation=continuation,
+        )
 
     def entries(self, entry_ids: list[str]) -> Any:
         return self._article_api.entries(entry_ids)

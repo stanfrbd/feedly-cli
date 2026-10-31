@@ -9,7 +9,7 @@ from rich.text import Text
 
 from .article_data import article_items
 from .articles import render_article_summary, render_articles
-from .common import clean_text, create_console, literal, render_detail
+from .common import clean_line, clean_text, create_console, literal, render_detail
 from .discovery import listing_items, render_listing, render_mutation
 from .vulnerabilities import render_cve_details, render_vulnerabilities
 
@@ -24,6 +24,17 @@ def render(
 ) -> None:
     """Render a Feedly JSON response for a human in a terminal."""
     context = context or {}
+    if command == "articles" and action == "resolve-url" and isinstance(value, dict):
+        target = stream if stream is not None else sys.stdout
+        target.write("Resolved article\n")
+        for label, key in (
+            ("Entry ID", "entryId"),
+            ("URL", "url"),
+            ("Source stream", "streamId"),
+            ("Pages scanned", "pagesScanned"),
+        ):
+            target.write(f"  {label}: {clean_line(value.get(key))}\n")
+        return
     if action in {"add-url", "add-entry"} and render_mutation(value, context, action, stream):
         return
     if command.lower() == "profile" and isinstance(value, dict):

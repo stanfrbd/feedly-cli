@@ -21,7 +21,7 @@ The [customer script](https://github.com/feedly/sample-customer-scripts/blob/mai
 
 ## URL resolution
 
-The current board API accepts article IDs. `boards add-url` finds an exact `canonicalUrl` or `alternate.href` match in a bounded stream scan, then submits its article ID. Use a source stream containing the article for predictable resolution. A miss means the article was not found in the scanned window; it does not prove that Feedly has never indexed it. This command does not ingest an arbitrary external webpage. `--dry-run` resolves the ID without writing to the board.
+The current board API accepts article IDs. `articles resolve-url` performs a read-only bounded stream scan and returns `entryId`, the requested `url`, `streamId` and `pagesScanned`. `boards add-url` reuses this resolver before submitting its article ID, preserving its existing dry-run response. Both match `canonicalUrl`, `url` or `alternate.href` exactly without URL normalization or external ingestion. Use a source stream containing the article for predictable resolution. Exhaustion without a match is `not_found`, not global absence; a page-limit hit with more entries is an incomplete `api_error` containing a continuation in error details. `articles resolve-url --continuation TOKEN` resumes within the same source/URL. Malformed pages, invalid matching IDs and repeated continuation tokens fail explicitly. `boards add-url --dry-run` resolves the ID without writing to the board.
 
 ## Monitoring
 
