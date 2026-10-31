@@ -180,6 +180,12 @@ The existing `iocCount` behavior is preserved for compatibility: positive list l
 
 Use `feedly search php2shell --all --fetch --json --brief` for compact triage with the available entry metadata. The new field is additive in brief JSON only; raw JSON and JSON+Markdown still preserve Feedly's original metadata without adding `iocStatus`.
 
+For focused October 2026 triage, combine publication bounds, full pagination, entry metadata and about-only matching:
+
+```sh
+feedly search php2shell --since 2026-10-01 --before 2026-11-01 --salience about --all --fetch --json --brief
+```
+
 ### Identifying a specific threat (agent workflow)
 
 Search is broad: by default Feedly returns every article that merely *mentions* the term. An agent identifying one threat (for example `PHP2Shell`) can narrow it down in three read-only steps:
