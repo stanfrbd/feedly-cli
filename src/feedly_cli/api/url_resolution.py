@@ -40,12 +40,14 @@ def validate_url(url: str) -> None:
             raise ValueError
         if parsed.port is not None and not 1 <= parsed.port <= 65535:
             raise ValueError
-        if ":" in host:
+        if parsed.netloc.startswith("["):
             ipaddress.IPv6Address(host)
             suffix = parsed.netloc[parsed.netloc.index("]") + 1 :]
             if suffix and not re.fullmatch(r":[0-9]+", suffix):
                 raise ValueError
         else:
+            if any(char in parsed.netloc for char in "[]") or ":" in host:
+                raise ValueError
             ascii_host = host.encode("idna").decode("ascii").rstrip(".")
             if (
                 not ascii_host
