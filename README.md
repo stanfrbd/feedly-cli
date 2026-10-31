@@ -134,9 +134,12 @@ Combined with `--json`, it retains the response structure and adds `contentMarkd
 ```sh
 feedly articles resolve-url 'https://www.sophos.com/en-us/blog/chaos-in-teams-vishing' --json
 feedly articles resolve-url 'https://www.sophos.com/en-us/blog/chaos-in-teams-vishing' --source-stream 'feed/https://blogs.sophos.com/feed/' --json
+feedly articles resolve-url 'https://thehackernews.com/2026/10/attackers-use-microsoft-teams-it.html' --source-stream 'feed/http://thehackernews.com/feeds/posts/default' --json
 feedly articles resolve-url 'https://example.com/article' --source-stream 'feed/https://example.com/rss.xml' --max-pages 20 --count 100 --json
 feedly articles get 'ENTRY_ID' --markdown
 ```
+
+The publisher-specific Sophos and The Hacker News examples were resolved in read-only live checks. The Hacker News (`thehackernews.com`) is a different publisher from Hacker News (`news.ycombinator.com`); use the correct indexed source. A focused source avoids scanning unrelated global-stream entries but is still subject to indexing/history and page limits.
 
 Matching is exact against Feedly's `canonicalUrl`, `url` or `alternate.href`. The command does not follow redirects, remove tracking parameters, normalize trailing slashes, fetch publisher pages, ingest a URL or fabricate an entry ID. Defaults are 100 entries per page and at most 10 pages; each option is bounded to 1–100.
 
