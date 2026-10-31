@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from typing import Any
+from typing import Any, Literal
 
 from .article_data import article_url, articles_from_response, source_name
 from .common import clean_text, format_date, pick
@@ -91,17 +91,26 @@ def describe_cve(cve: dict[str, Any]) -> str:
     return f"{label} ({', '.join(facts)})" if facts else label
 
 
-def describe_ioc(item: dict[str, Any]) -> str:
-    """Describe Feedly's extraction metadata, never infer IoCs from article links."""
+def ioc_status(item: dict[str, Any]) -> Literal["present", "not_reported", "unknown"]:
+    """Classify only usable Feedly extraction metadata, not content or export links."""
     metadata = item.get("indicatorsOfCompromise")
     mentions = metadata.get("mentions") if isinstance(metadata, dict) else None
     if not isinstance(mentions, list) or any(
         not isinstance(mention, dict) or not mention for mention in mentions
     ):
+        return "unknown"
+    return "present" if mentions else "not_reported"
+
+
+def describe_ioc(item: dict[str, Any]) -> str:
+    """Describe Feedly's extraction metadata, never infer IoCs from article links."""
+    status = ioc_status(item)
+    if status == "unknown":
         return "Unknown (Feedly IoC metadata unavailable)"
-    if mentions:
-        noun = "mention" if len(mentions) == 1 else "mentions"
-        return f"Contains IoC (Feedly: {len(mentions)} extracted {noun})"
+    if status == "present":
+        count = len(item["indicatorsOfCompromise"]["mentions"])
+        noun = "mention" if count == 1 else "mentions"
+        return f"Contains IoC (Feedly: {count} extracted {noun})"
     return "No IoCs reported by Feedly (not proof of absence)"
 
 
@@ -117,6 +126,7 @@ def brief_article(item: dict[str, Any]) -> dict[str, Any]:
         "publishedDate": format_date(pick(item, "published", "publishedDate", "crawled")) or None,
     }
     record.update(intel)
+    record["iocStatus"] = ioc_status(item)
     return {key: value for key, value in record.items() if value}
 
 

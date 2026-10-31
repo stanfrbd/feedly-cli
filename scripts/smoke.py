@@ -38,6 +38,17 @@ def check_article_presentations(page: dict) -> None:
         else:
             statuses["empty"] += 1
             expected_statuses.append("No IoCs reported by Feedly (not proof of absence)")
+    expected_machine_states = [
+        "present"
+        if status.startswith("Contains IoC")
+        else "not_reported"
+        if status.startswith("No IoCs")
+        else "unknown"
+        for status in expected_statuses
+    ]
+    records = output.brief(page)["items"]
+    if [record.get("iocStatus") for record in records] != expected_machine_states:
+        raise RuntimeError("search: brief JSON IoC state does not match Feedly metadata")
     for details in (False, True):
         stream = StringIO()
         output.render(page, command="search", context={"details": details}, stream=stream)
@@ -68,7 +79,10 @@ def check_article_presentations(page: dict) -> None:
         ]
         if actual_statuses != expected_statuses:
             raise RuntimeError("search: Markdown IoC status does not match Feedly metadata")
-    print(f"PASS live article presentation: {len(items)} articles, default/details/Markdown/brief")
+    print(
+        f"PASS live article presentation: {len(items)} articles, "
+        "default/details/Markdown/brief JSON states"
+    )
     print(
         f"Feedly IoC metadata: {statuses['contains']} contains, "
         f"{statuses['empty']} empty, {statuses['unknown']} unavailable"

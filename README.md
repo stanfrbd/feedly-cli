@@ -148,17 +148,37 @@ feedly boards add-entry 'user/USER_ID/tag/BOARD_ID' 'ENTRY_ID'
 
 Article lists show one block per article with its source, publication date, **Feedly entry ID**, **original publisher URL**, **IoC status** and any CVEs Feedly linked to it (with CVSS, exploit and patch flags). IDs and URLs remain complete and copyable even in narrow terminals; an ID can be used directly with `articles get` or `boards add-entry`. The URL comes from Feedly's canonical URL or alternate article link, not a generated Feedly reader link. Missing IDs or URLs are explicitly marked unavailable. Use `--details` to add board labels, malware, threat actors, ATT&CK techniques and Feedly's AI summary. `articles get` always displays those details plus the article content. `cve` and `cves get` show a readable CVE summary (CVSS, EPSS, exploitation, weaknesses, affected products, patch status); use `--json` for every field. Rendering does not make additional API requests. Board membership is shown only when included in Feedly's response. JSON output is unaffected by `--details`.
 
-Terminal listings and Markdown (including `--brief`) show `Indicators: Contains IoC (Feedly: N extracted mentions)` when Feedly supplies a nonempty `indicatorsOfCompromise.mentions` list. This is Feedly's extraction metadata, not a local heuristic or an independently verified maliciousness verdict; the count is mentions, not necessarily unique indicators. An empty list shows `No IoCs reported by Feedly (not proof of absence)`. Missing or unusable metadata shows `Unknown (Feedly IoC metadata unavailable)`. Ordinary article URLs, content links and detection-rule export URLs are never treated as IoCs. Metadata availability depends on Feedly's response and account entitlements; `search --fetch` can retrieve additional entry metadata but cannot guarantee IoC coverage. Raw JSON and brief JSON retain their existing contracts; an omitted `iocCount` in brief JSON is not evidence that the article has no IoCs.
+Terminal listings and Markdown (including `--brief`) show `Indicators: Contains IoC (Feedly: N extracted mentions)` when Feedly supplies a nonempty `indicatorsOfCompromise.mentions` list. This is Feedly's extraction metadata, not a local heuristic or an independently verified maliciousness verdict; the count is mentions, not necessarily unique indicators. An empty list shows `No IoCs reported by Feedly (not proof of absence)`. Missing or unusable metadata shows `Unknown (Feedly IoC metadata unavailable)`. Ordinary article URLs, content links and detection-rule export URLs are never treated as IoCs. Metadata availability depends on Feedly's response and account entitlements; `search --fetch` can retrieve additional entry metadata but cannot guarantee IoC coverage. Raw JSON remains unchanged. Brief JSON adds the stable `iocStatus` field described below while preserving its existing fields.
 
 | Mode | Flags | Use it for |
 |---|---|---|
 | Human-readable | _(default)_, `--details` | Reading in a terminal |
 | JSON | `--json` | Scripts; the full Feedly response (large: about 10 KB per article) |
-| Brief JSON | `--json --brief` | Agents; per article only `id`, `title`, `url`, `source`, `published`, `cves`, `malware`, `threatActors`, `techniques`, `summary`, `iocCount`; the response envelope (`continuation`, `pages`) is kept |
+| Brief JSON | `--json --brief` | Agents; per article only `id`, `title`, `url`, `source`, `published`, `cves`, `malware`, `threatActors`, `techniques`, `summary`, `iocCount`, `iocStatus`; the response envelope (`continuation`, `pages`) is kept |
 | Markdown | `--markdown` | Article text and threat facts in an agent context or file |
 | Brief Markdown | `--markdown --brief` | Metadata and threat facts only, without article bodies |
 
 `--brief` applies to article, search, stream and board results.
+
+Every brief JSON article has **`iocStatus`**, using the same interpretation as terminal and Markdown:
+
+| Value | Meaning |
+|---|---|
+| `present` | Feedly provided a nonempty `indicatorsOfCompromise.mentions` list of nonempty objects |
+| `not_reported` | Feedly explicitly provided an empty mentions list; not proof the article contains no IoCs |
+| `unknown` | Metadata is absent, null or malformed (including non-list mentions or empty/non-object mention records); never treat this as absence |
+
+The existing `iocCount` behavior is preserved for compatibility: positive list lengths are included, zero counts are omitted. Malformed lists can retain a legacy positive count while `iocStatus` is `unknown`; **use the state field for decisions**, not the presence/absence of a count. Counts are extracted mentions, not unique or independently verified malicious indicators. Example records:
+
+```json
+[
+  {"id":"entry-positive","iocCount":2,"iocStatus":"present"},
+  {"id":"entry-empty","iocStatus":"not_reported"},
+  {"id":"entry-unavailable","iocStatus":"unknown"}
+]
+```
+
+Use `feedly search php2shell --all --fetch --json --brief` for compact triage with the available entry metadata. The new field is additive in brief JSON only; raw JSON and JSON+Markdown still preserve Feedly's original metadata without adding `iocStatus`.
 
 ### Identifying a specific threat (agent workflow)
 

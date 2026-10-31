@@ -91,7 +91,10 @@ def test_brief_json_drops_article_bodies(run_cli, client):
     }
     code, out, err = run_cli(["search", "php2shell", "--brief"])
     assert code == 0 and not err
-    assert json.loads(out) == {"items": [{"id": "a", "title": "T"}], "continuation": "next"}
+    assert json.loads(out) == {
+        "items": [{"id": "a", "title": "T", "iocStatus": "unknown"}],
+        "continuation": "next",
+    }
 
 
 @pytest.mark.parametrize(

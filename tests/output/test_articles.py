@@ -78,6 +78,7 @@ def test_brief_keeps_envelope_and_only_identification_fields():
             "techniques": ["Initial Access"],
             "summary": "CISA added PHP2Shell to KEV.",
             "iocCount": 1,
+            "iocStatus": "present",
         }
     ]
     assert output.brief(CISA_ARTICLE)["id"] == "entry-cisa"
