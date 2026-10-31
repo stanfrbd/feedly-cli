@@ -91,6 +91,20 @@ def describe_cve(cve: dict[str, Any]) -> str:
     return f"{label} ({', '.join(facts)})" if facts else label
 
 
+def describe_ioc(item: dict[str, Any]) -> str:
+    """Describe Feedly's extraction metadata, never infer IoCs from article links."""
+    metadata = item.get("indicatorsOfCompromise")
+    mentions = metadata.get("mentions") if isinstance(metadata, dict) else None
+    if not isinstance(mentions, list) or any(
+        not isinstance(mention, dict) or not mention for mention in mentions
+    ):
+        return "Unknown (Feedly IoC metadata unavailable)"
+    if mentions:
+        noun = "mention" if len(mentions) == 1 else "mentions"
+        return f"Contains IoC (Feedly: {len(mentions)} extracted {noun})"
+    return "No IoCs reported by Feedly (not proof of absence)"
+
+
 def brief_article(item: dict[str, Any]) -> dict[str, Any]:
     """Identification-only record of an article: IDs, links and threat facts, no body."""
     intel = threat_intel(item)

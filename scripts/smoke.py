@@ -10,6 +10,69 @@ import json
 import os
 import subprocess
 import sys
+from io import StringIO
+
+from feedly_cli import output
+from feedly_cli.output.article_data import article_url
+
+
+def check_article_presentations(page: dict) -> None:
+    """Check complete live identifiers in every text mode without printing them."""
+    items = page.get("items", [])
+    if not items:
+        raise RuntimeError("search: no articles available to verify presentation")
+    statuses = {"contains": 0, "empty": 0, "unknown": 0}
+    expected_statuses = []
+    for item in items:
+        metadata = item.get("indicatorsOfCompromise")
+        mentions = metadata.get("mentions") if isinstance(metadata, dict) else None
+        if not isinstance(mentions, list) or any(
+            not isinstance(mention, dict) or not mention for mention in mentions
+        ):
+            statuses["unknown"] += 1
+            expected_statuses.append("Unknown (Feedly IoC metadata unavailable)")
+        elif mentions:
+            statuses["contains"] += 1
+            noun = "mention" if len(mentions) == 1 else "mentions"
+            expected_statuses.append(f"Contains IoC (Feedly: {len(mentions)} extracted {noun})")
+        else:
+            statuses["empty"] += 1
+            expected_statuses.append("No IoCs reported by Feedly (not proof of absence)")
+    for details in (False, True):
+        stream = StringIO()
+        output.render(page, command="search", context={"details": details}, stream=stream)
+        text = stream.getvalue()
+        for item in items:
+            if not item.get("id") or not article_url(item):
+                raise RuntimeError("search: live article is missing an ID or publisher URL")
+            if item["id"] not in text or article_url(item) not in text:
+                raise RuntimeError("search: terminal output truncated an ID or publisher URL")
+        actual_statuses = [
+            line.removeprefix("  Indicators: ")
+            for line in text.splitlines()
+            if line.startswith("  Indicators: ")
+        ]
+        if actual_statuses != expected_statuses:
+            raise RuntimeError("search: terminal IoC status does not match Feedly metadata")
+    for include_content in (False, True):
+        stream = StringIO()
+        output.write_markdown(page, stream, include_content=include_content)
+        text = stream.getvalue()
+        for item in items:
+            if item["id"] not in text or article_url(item) not in text:
+                raise RuntimeError("search: Markdown output lost an ID or publisher URL")
+        actual_statuses = [
+            line.removeprefix("- Indicators: ")
+            for line in text.splitlines()
+            if line.startswith("- Indicators: ")
+        ]
+        if actual_statuses != expected_statuses:
+            raise RuntimeError("search: Markdown IoC status does not match Feedly metadata")
+    print(f"PASS live article presentation: {len(items)} articles, default/details/Markdown/brief")
+    print(
+        f"Feedly IoC metadata: {statuses['contains']} contains, "
+        f"{statuses['empty']} empty, {statuses['unknown']} unavailable"
+    )
 
 
 def run(
@@ -67,10 +130,11 @@ def main() -> int:
     run("cves", "get", "CVE-2021-44228", "CVE-2024-3094")
     run("cves", "trending", "--count", "1")
     run("search", "ransomware")
-    run("search", "PHP2Shell", "--all", "--fetch")
+    hydrated = run("search", "PHP2Shell", "--all", "--fetch")
+    check_article_presentations(hydrated)
     listing = run("search", "PHP2Shell", "--count", "1", text_output=True)
-    if "Entry ID:" not in listing:
-        raise RuntimeError("search: default text output is missing the entry ID")
+    if any(field not in listing for field in ("Entry ID:", "URL:", "Indicators:")):
+        raise RuntimeError("search: default text output is missing ID, URL or IoC status")
     found = run("search", "PHP2Shell", "--count", "3", "--salience", "about", "--brief")
     if not found.get("items") or any("id" not in article for article in found["items"]):
         raise RuntimeError("search: brief JSON output is missing article IDs")

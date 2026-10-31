@@ -41,4 +41,6 @@ feedly search "PHP2Shell" --all --fetch --json > articles.json
 
 ## Validation
 
+Human-readable article output uses Feedly's `canonicalUrl` (with alternate article-link fallbacks) and entry `id` for publisher links and reusable identifiers. IoC descriptions use only the documented `indicatorsOfCompromise.mentions` metadata from [article metadata](https://developers.feedly.com/reference/get-article-metadata). A nonempty list supports a Feedly-attributed contains-IoC description; an empty list reports no extracted mentions, not proof of absence. Missing or malformed metadata is unknown. Export links, Sigma rules and arbitrary content URLs do not establish IoC presence. Rendering does not hydrate entries or fetch publisher pages; use `search --fetch` to request entry metadata explicitly. JSON schemas and brief JSON's existing `iocCount` behavior are unchanged.
+
 Offline tests exercise the CLI and the official SDK with mocked HTTP responses, including write request bodies. `scripts/smoke.py` makes read-only live requests with the caller's token and tests URL resolution with `--dry-run`. Account permissions and API entitlements can limit individual commands even on Enterprise plans.

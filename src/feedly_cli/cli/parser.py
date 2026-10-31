@@ -25,7 +25,8 @@ class Parser(argparse.ArgumentParser):
             "--details",
             action="store_true",
             default=argparse.SUPPRESS,
-            help="show article URLs, entry IDs and board labels in the human-readable output",
+            help="add board labels, threat-intelligence details and AI summaries "
+            "to human-readable article output",
         )
         self.add_argument(
             "--brief",

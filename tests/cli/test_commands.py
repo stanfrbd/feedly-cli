@@ -108,13 +108,26 @@ def test_brief_rejects_unsupported_combinations(monkeypatch, client, argv):
     client.search.assert_not_called()
 
 
-def test_human_search_shows_entry_id_by_default(monkeypatch, capsys, client):
-    client.search.return_value = {"items": [{"id": "entry/default-id", "title": "PHP2Shell"}]}
+def test_human_search_shows_entry_id_url_and_ioc_status_by_default(monkeypatch, capsys, client):
+    client.search.return_value = {
+        "items": [
+            {
+                "id": "entry/default-id",
+                "title": "PHP2Shell",
+                "alternate": [{"href": "https://example.test/research"}],
+                "indicatorsOfCompromise": {"mentions": [{"type": "domain"}]},
+            }
+        ]
+    }
     monkeypatch.setattr(cli.app, "create_client", lambda: client)
     assert cli.main(["search", "PHP2Shell"]) == 0
     captured = capsys.readouterr()
     assert "Entry ID: entry/default-id" in captured.out
+    assert "URL: https://example.test/research" in captured.out
+    assert "Indicators: Contains IoC (Feedly: 1 extracted mention)" in captured.out
     assert not captured.err
+    client.fetch_search_result.assert_not_called()
+    client.entry.assert_not_called()
 
 
 def test_human_search_details_include_copyable_metadata(monkeypatch, capsys, client):
@@ -147,7 +160,17 @@ def test_human_search_details_include_copyable_metadata(monkeypatch, capsys, cli
 
 
 def test_details_flag_does_not_change_json(monkeypatch, capsys, client):
-    data = {"items": [{"id": "a", "title": "PHP2Shell"}], "continuation": "next"}
+    data = {
+        "items": [
+            {
+                "id": "a",
+                "title": "PHP2Shell",
+                "canonicalUrl": "https://example.test/research",
+                "indicatorsOfCompromise": {"mentions": [{"type": "domain"}]},
+            }
+        ],
+        "continuation": "next",
+    }
     client.search.return_value = data
     monkeypatch.setattr(cli.app, "create_client", lambda: client)
     assert cli.main(["search", "PHP2Shell", "--json", "--details"]) == 0

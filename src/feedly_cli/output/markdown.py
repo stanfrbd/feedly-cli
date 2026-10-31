@@ -12,7 +12,7 @@ from markdownify import markdownify
 
 from .article_data import article_items, article_url, articles_from_response, source_name
 from .common import clean_line, clean_text, format_date, pick
-from .threat import describe_cve, threat_intel
+from .threat import describe_cve, describe_ioc, threat_intel
 
 
 def _content_text(value: Any) -> str:
@@ -114,15 +114,14 @@ def write_markdown(value: Any, stream: Any = None, *, include_content: bool = Tr
         metadata = [f"- Content source: {fmt}"] if include_content else []
         if source:
             metadata.append(f"- Source: {source}")
-        if entry_id:
-            metadata.append(f"- Entry ID: {entry_id}")
-        if url:
-            metadata.append(f"- URL: {url}")
+        metadata.append(f"- Entry ID: {entry_id or 'Unavailable (not provided by Feedly)'}")
+        metadata.append(f"- URL: {url or 'Unavailable (not provided by Feedly)'}")
         if published:
             metadata.append(f"- Published: {published}")
         intel = threat_intel(article)
         if intel["cves"]:
             metadata.append("- CVEs: " + ", ".join(describe_cve(cve) for cve in intel["cves"]))
+        metadata.append(f"- Indicators: {describe_ioc(article)}")
         for label, key in (
             ("Malware", "malware"),
             ("Threat actors", "threatActors"),
