@@ -67,3 +67,34 @@ def test_resolver_incomplete_error_exposes_resume_in_json(run_cli, client):
     code, out, err = run_cli(["articles", "resolve-url", "https://example.test"])
     assert code == 6 and not out
     assert json.loads(err)["error"]["details"]["continuation"] == "next"
+
+
+@pytest.mark.parametrize("command", ["articles", "boards"])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://user:password@example.test/",
+        "ftp://example.test/article",
+        "https://example.test/%ZZ",
+        "https://example.test/\n",
+    ],
+)
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_unsafe_urls_rejected_before_auth_no_input_echo(
+    monkeypatch, capsys, client, command, url, json_mode
+):
+    monkeypatch.delenv("FEEDLY_TOKEN", raising=False)
+    args = (
+        ["articles", "resolve-url", url]
+        if command == "articles"
+        else ["boards", "add-url", "board", url]
+    )
+    if json_mode:
+        args.append("--json")
+    assert cli.main(args) == 2
+    captured = capsys.readouterr()
+    assert not captured.out and "password" not in captured.err and url not in captured.err
+    if json_mode:
+        assert json.loads(captured.err)["error"]["category"] == "usage"
+    client.resolve_article_url.assert_not_called()
+    client.add_url_to_board.assert_not_called()

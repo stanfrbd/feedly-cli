@@ -6,7 +6,7 @@ import argparse
 import time
 from typing import Any
 
-from ..cli.arguments import nonnegative_int, positive_float, positive_int
+from ..cli.arguments import http_url, nonnegative_int, positive_float, positive_int
 from ..cli.display import StreamedOutput, display
 from ..client import FeedlyClient
 
@@ -93,7 +93,7 @@ def register(commands: argparse._SubParsersAction) -> None:
 
     board_add = actions.add_parser("add-url", help="add a URL to a board")
     board_add.add_argument("id", help="board ID")
-    board_add.add_argument("url", help="article URL to add")
+    board_add.add_argument("url", type=http_url, help="article URL to add")
     board_add.add_argument(
         "--source-stream",
         "--stream-id",

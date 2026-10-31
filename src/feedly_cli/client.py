@@ -11,7 +11,7 @@ from .api.discovery import DiscoveryAPI
 from .api.search import SearchAPI
 from .api.streams import StreamAPI
 from .api.transport import DEFAULT_API_BASE, DEFAULT_TIMEOUT, APITransport
-from .api.url_resolution import resolve_url
+from .api.url_resolution import resolve_url, validate_url
 from .api.vulnerabilities import VulnerabilityAPI
 from .errors import FeedlyError
 
@@ -80,6 +80,7 @@ class FeedlyClient:
         max_pages: int = 10,
         continuation: str | None = None,
     ) -> dict[str, Any]:
+        validate_url(url)
         source_stream = stream_id or self._discovery_api.default_enterprise_stream()
         if not source_stream:
             raise FeedlyError(

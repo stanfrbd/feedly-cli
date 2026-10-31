@@ -10,7 +10,7 @@ from feedly_cli.errors import FeedlyError
 from .discovery import DiscoveryAPI
 from .streams import StreamAPI
 from .transport import APITransport
-from .url_resolution import resolve_url
+from .url_resolution import resolve_url, validate_url
 
 
 class BoardAPI:
@@ -86,6 +86,7 @@ class BoardAPI:
         max_pages: int = 10,
         count: int = 100,
     ) -> Any:
+        validate_url(url)
         source_stream = (
             stream_id
             or _global_stream_for_board(board_id)

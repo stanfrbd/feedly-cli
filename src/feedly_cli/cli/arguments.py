@@ -8,7 +8,17 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from ..api.url_resolution import validate_url
+from ..errors import FeedlyError
 from .errors import InputError
+
+
+def http_url(value: str) -> str:
+    try:
+        validate_url(value)
+    except FeedlyError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+    return value
 
 
 def positive_int(value: str) -> int:

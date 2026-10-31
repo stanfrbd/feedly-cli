@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from ..cli.arguments import bounded_positive_int, positive_int
+from ..cli.arguments import bounded_positive_int, http_url, positive_int
 from ..client import FeedlyClient
 
 
@@ -43,7 +43,7 @@ def register(commands: argparse._SubParsersAction) -> None:
     article_resolve = article_actions.add_parser(
         "resolve-url", help="resolve an indexed publisher URL without changing account data"
     )
-    article_resolve.add_argument("url", help="exact publisher URL to resolve")
+    article_resolve.add_argument("url", type=http_url, help="exact publisher URL to resolve")
     article_resolve.add_argument(
         "--source-stream",
         "--stream-id",
