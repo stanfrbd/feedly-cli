@@ -123,9 +123,17 @@ class FeedlyClient:
         *,
         stream_id: str | None = None,
         salience: str = "mention",
+        since: int | None = None,
+        before: int | None = None,
     ) -> Any:
         return self._search_api.search(
-            query, count, continuation, stream_id=stream_id, salience=salience
+            query,
+            count,
+            continuation,
+            stream_id=stream_id,
+            salience=salience,
+            since=since,
+            before=before,
         )
 
     def search_all(
@@ -136,8 +144,13 @@ class FeedlyClient:
         stream_id: str | None = None,
         fetch: bool = False,
         salience: str = "mention",
+        *,
+        since: int | None = None,
+        before: int | None = None,
     ) -> Any:
-        return self._search_api.search_all(query, count, max_pages, stream_id, fetch, salience)
+        return self._search_api.search_all(
+            query, count, max_pages, stream_id, fetch, salience, since=since, before=before
+        )
 
     def cve(self, cve_id: str) -> Any:
         return self._vulnerability_api.cve(cve_id)

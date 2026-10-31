@@ -62,7 +62,7 @@ feedly boards read BOARD_ID [--count N] [--continuation TOKEN]
 feedly boards watch BOARD_ID [--interval SECONDS] [--iterations N] [--count N] [--max-pages N]
 feedly boards add-url BOARD_ID URL [--source-stream STREAM_ID] [--max-pages N] [--count N] [--dry-run]
 feedly boards add-entry BOARD_ID ENTRY_ID
-feedly search QUERY [--all] [--fetch] [--salience mention|about] [--count N] [--max-pages N] [--continuation TOKEN] [--stream-id STREAM_ID]
+feedly search QUERY [--since DATE] [--before DATE] [--all] [--fetch] [--salience mention|about] [--count N] [--max-pages N] [--continuation TOKEN] [--stream-id STREAM_ID]
 feedly search --query-file request.json [--count N] [--continuation TOKEN]
 feedly cve CVE_ID
 feedly cves get CVE_ID [CVE_ID ...]
@@ -99,6 +99,20 @@ cat vulnerability-query.json | feedly cves search --query-file -
 feedly search 'PHP2Shell' --all --fetch
 feedly search 'PHP2Shell' --count 50 --continuation CONTINUATION_TOKEN --fetch
 ```
+
+### Search a publication date range
+
+Use `--since` (inclusive) and `--before` (exclusive) to select Feedly's **`published`** timestamp, not crawl time. A calendar date means midnight UTC; ISO 8601 timestamps must include a timezone (`Z` or an offset) and may have millisecond precision. For all of October 2026:
+
+```sh
+feedly search php2shell --since 2026-10-01 --before 2026-11-01 --all --json
+feedly search php2shell --since 2026-10-01 --before 2026-11-01 --all --markdown --brief
+feedly search php2shell --since 2026-10-15T09:00:00+02:00 --before 2026-10-16T09:00:00+02:00 --all
+```
+
+Either bound can be omitted. Invalid dates, timezone-less timestamps, equal bounds and reversed ranges fail before authentication or network requests. Missing or invalid article `published` timestamps cause an explicit API error for dated searches rather than silently losing undatable articles. Unfiltered searches retain existing behavior. Date flags also work with `--query-file`; the query body remains unchanged.
+
+Bounds are applied locally to each returned Feedly page, without assuming undocumented server-side date semantics or ordering. They preserve Feedly's ordering and continuation tokens. **A single-page search is still only one API page:** `--count` controls the number requested before filtering, so fewer (or zero) matches can be returned while more pages remain. Repeat the same bounds with `--continuation`, or use `--all` for all matching results within the accessible query scope. `--all` drains pages even after an empty filtered page and fails if `--max-pages` is reached with more results remaining. This may scan out-of-range articles and consume more API requests; it does not guarantee access beyond Feedly's account/search history limits. Hydration runs after filtering, so `--fetch` retrieves only matched entries. Date selection is identical in terminal, JSON, brief JSON and Markdown modes.
 
 ### Export article content as Markdown
 

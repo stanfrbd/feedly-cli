@@ -98,3 +98,67 @@ def test_search_all_validates_pagination_limits_before_request(client, api_http)
     with pytest.raises(FeedlyError):
         client.search_all({"layers": []}, max_pages=0)
     assert not api_http.calls
+
+
+def test_date_search_filters_publication_not_crawl_time_and_keeps_continuation(
+    client, api_http, add_api_response, request_query_params
+):
+    add_api_response(
+        api_http,
+        responses.POST,
+        "/v3/search/contents",
+        {
+            "items": [
+                {"id": "before", "published": 9, "crawled": 15},
+                {"id": "start", "published": 10, "crawled": 1},
+                {"id": "inside", "published": 19},
+                {"id": "end", "published": 20},
+            ],
+            "continuation": "next",
+        },
+    )
+    result = client.search({"layers": []}, since=10, before=20, count=4)
+    assert [item["id"] for item in result["items"]] == ["start", "inside"]
+    assert result["continuation"] == "next"
+    assert request_query_params(api_http.calls[0])["count"] == "4"
+
+
+def test_dated_all_search_does_not_stop_at_empty_filtered_page_and_hydrates_matches_only(
+    client, api_http, add_api_response, decode_request_json
+):
+    for page in (
+        {"items": [{"id": "future", "published": 21}], "continuation": "next"},
+        {"items": [{"id": "a", "published": 10}], "continuation": "last"},
+        {"items": [{"id": "a", "published": 10}, {"id": "b", "published": 19}]},
+    ):
+        add_api_response(api_http, responses.POST, "/v3/search/contents", page)
+    add_api_response(
+        api_http,
+        responses.POST,
+        "/v3/entries/.mget",
+        [{"id": "a", "published": 10}, {"id": "b", "published": 19}],
+    )
+    result = client.search_all({"layers": []}, since=10, before=20, fetch=True)
+    assert [item["id"] for item in result["items"]] == ["a", "b"]
+    assert result["pages"] == 3 and "continuation" not in result
+    assert decode_request_json(api_http.calls[3]) == ["a", "b"]
+
+
+def test_date_search_page_limit_fails_even_when_filtered_page_is_empty(
+    client, api_http, add_api_response
+):
+    add_api_response(
+        api_http,
+        responses.POST,
+        "/v3/search/contents",
+        {"items": [{"id": "out", "published": 1}], "continuation": "next"},
+    )
+    with pytest.raises(FeedlyError, match="max_pages"):
+        client.search_all({"layers": []}, since=10, before=20, max_pages=1)
+
+
+def test_invalid_date_bounds_fail_before_any_api_request(client, api_http):
+    for operation in (client.search, client.search_all):
+        with pytest.raises(FeedlyError, match="earlier"):
+            operation("x", since=20, before=10)
+    assert not api_http.calls
