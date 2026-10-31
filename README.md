@@ -62,7 +62,7 @@ feedly boards read BOARD_ID [--count N] [--continuation TOKEN]
 feedly boards watch BOARD_ID [--interval SECONDS] [--iterations N] [--count N] [--max-pages N]
 feedly boards add-url BOARD_ID URL [--source-stream STREAM_ID] [--max-pages N] [--count N] [--dry-run]
 feedly boards add-entry BOARD_ID ENTRY_ID
-feedly search QUERY [--all] [--fetch] [--salience mention|about] [--count N] [--max-pages N] [--continuation TOKEN] [--stream-id STREAM_ID]
+feedly search QUERY [--since DATE] [--before DATE] [--all] [--fetch] [--salience mention|about] [--count N] [--max-pages N] [--continuation TOKEN] [--stream-id STREAM_ID]
 feedly search --query-file request.json [--count N] [--continuation TOKEN]
 feedly cve CVE_ID
 feedly cves get CVE_ID [CVE_ID ...]
@@ -100,6 +100,20 @@ feedly search 'PHP2Shell' --all --fetch
 feedly search 'PHP2Shell' --count 50 --continuation CONTINUATION_TOKEN --fetch
 ```
 
+### Search a publication date range
+
+Use `--since` (inclusive) and `--before` (exclusive) to select Feedly's **`published`** timestamp, not crawl time. A calendar date means midnight UTC; ISO 8601 timestamps must include a timezone (`Z` or an offset) and may have millisecond precision. For all of October 2026:
+
+```sh
+feedly search php2shell --since 2026-10-01 --before 2026-11-01 --all --json
+feedly search php2shell --since 2026-10-01 --before 2026-11-01 --all --markdown --brief
+feedly search php2shell --since 2026-10-15T09:00:00+02:00 --before 2026-10-16T09:00:00+02:00 --all
+```
+
+Either bound can be omitted. Invalid dates, timezone-less timestamps, equal bounds and reversed ranges fail before authentication or network requests. Missing or invalid article `published` timestamps cause an explicit API error for dated searches rather than silently losing undatable articles. Unfiltered searches retain existing behavior. Date flags also work with `--query-file`; the query body remains unchanged.
+
+Bounds are applied locally to each returned Feedly page, without assuming undocumented server-side date semantics or ordering. They preserve Feedly's ordering and continuation tokens. **A single-page search is still only one API page:** `--count` controls the number requested before filtering, so fewer (or zero) matches can be returned while more pages remain. Repeat the same bounds with `--continuation`, or use `--all` for all matching results within the accessible query scope. `--all` drains pages even after an empty filtered page and fails if `--max-pages` is reached with more results remaining. This may scan out-of-range articles and consume more API requests; it does not guarantee access beyond Feedly's account/search history limits. Hydration runs after filtering, so `--fetch` retrieves only matched entries. Date selection is identical in terminal, JSON, brief JSON and Markdown modes.
+
 ### Export article content as Markdown
 
 `--markdown` is supported by `articles get`, `search`, `streams read`, `boards read`, and `boards watch`. Without `--json`, it writes plain Markdown documents with article metadata and content, suitable for a file or an agent context.
@@ -132,17 +146,45 @@ feedly boards add-entry 'user/USER_ID/tag/BOARD_ID' 'ENTRY_ID'
 
 ## Output and exit codes
 
-Article lists show one block per article with its source, publication date, **entry ID** and any CVEs Feedly linked to it (with CVSS, exploit and patch flags), so an ID can be copied straight into `articles get` or `boards add-entry`. Use `--details` to add the URL, board labels, malware, threat actors, ATT&CK techniques, indicator count and Feedly's AI summary. `articles get` always displays those details plus the article content. `cve` and `cves get` show a readable CVE summary (CVSS, EPSS, exploitation, weaknesses, affected products, patch status); use `--json` for every field. Rendering does not make additional API requests. Board membership is shown only when included in Feedly's response. JSON output is unaffected by `--details`.
+Article lists show one block per article with its source, publication date, **Feedly entry ID**, **original publisher URL**, **IoC status** and any CVEs Feedly linked to it (with CVSS, exploit and patch flags). IDs and URLs remain complete and copyable even in narrow terminals; an ID can be used directly with `articles get` or `boards add-entry`. The URL comes from Feedly's canonical URL or alternate article link, not a generated Feedly reader link. Missing IDs or URLs are explicitly marked unavailable. Use `--details` to add board labels, malware, threat actors, ATT&CK techniques and Feedly's AI summary. `articles get` always displays those details plus the article content. `cve` and `cves get` show a readable CVE summary (CVSS, EPSS, exploitation, weaknesses, affected products, patch status); use `--json` for every field. Rendering does not make additional API requests. Board membership is shown only when included in Feedly's response. JSON output is unaffected by `--details`.
+
+Terminal listings and Markdown (including `--brief`) show `Indicators: Contains IoC (Feedly: N extracted mentions)` when Feedly supplies a nonempty `indicatorsOfCompromise.mentions` list. This is Feedly's extraction metadata, not a local heuristic or an independently verified maliciousness verdict; the count is mentions, not necessarily unique indicators. An empty list shows `No IoCs reported by Feedly (not proof of absence)`. Missing or unusable metadata shows `Unknown (Feedly IoC metadata unavailable)`. Ordinary article URLs, content links and detection-rule export URLs are never treated as IoCs. Metadata availability depends on Feedly's response and account entitlements; `search --fetch` can retrieve additional entry metadata but cannot guarantee IoC coverage. Raw JSON remains unchanged. Brief JSON adds the stable `iocStatus` field described below while preserving its existing fields.
 
 | Mode | Flags | Use it for |
 |---|---|---|
 | Human-readable | _(default)_, `--details` | Reading in a terminal |
 | JSON | `--json` | Scripts; the full Feedly response (large: about 10 KB per article) |
-| Brief JSON | `--json --brief` | Agents; per article only `id`, `title`, `url`, `source`, `published`, `cves`, `malware`, `threatActors`, `techniques`, `summary`, `iocCount`; the response envelope (`continuation`, `pages`) is kept |
+| Brief JSON | `--json --brief` | Agents; per article only `id`, `title`, `url`, `source`, `published`, `cves`, `malware`, `threatActors`, `techniques`, `summary`, `iocCount`, `iocStatus`; the response envelope (`continuation`, `pages`) is kept |
 | Markdown | `--markdown` | Article text and threat facts in an agent context or file |
 | Brief Markdown | `--markdown --brief` | Metadata and threat facts only, without article bodies |
 
 `--brief` applies to article, search, stream and board results.
+
+Every brief JSON article has **`iocStatus`**, using the same interpretation as terminal and Markdown:
+
+| Value | Meaning |
+|---|---|
+| `present` | Feedly provided a nonempty `indicatorsOfCompromise.mentions` list of nonempty objects |
+| `not_reported` | Feedly explicitly provided an empty mentions list; not proof the article contains no IoCs |
+| `unknown` | Metadata is absent, null or malformed (including non-list mentions or empty/non-object mention records); never treat this as absence |
+
+The existing `iocCount` behavior is preserved for compatibility: positive list lengths are included, zero counts are omitted. Malformed lists can retain a legacy positive count while `iocStatus` is `unknown`; **use the state field for decisions**, not the presence/absence of a count. Counts are extracted mentions, not unique or independently verified malicious indicators. Example records:
+
+```json
+[
+  {"id":"entry-positive","iocCount":2,"iocStatus":"present"},
+  {"id":"entry-empty","iocStatus":"not_reported"},
+  {"id":"entry-unavailable","iocStatus":"unknown"}
+]
+```
+
+Use `feedly search php2shell --all --fetch --json --brief` for compact triage with the available entry metadata. The new field is additive in brief JSON only; raw JSON and JSON+Markdown still preserve Feedly's original metadata without adding `iocStatus`.
+
+For focused October 2026 triage, combine publication bounds, full pagination, entry metadata and about-only matching:
+
+```sh
+feedly search php2shell --since 2026-10-01 --before 2026-11-01 --salience about --all --fetch --json --brief
+```
 
 ### Identifying a specific threat (agent workflow)
 

@@ -1,4 +1,4 @@
-"""Article listings; every article shows its entry ID, ``--details`` adds the rest."""
+"""Article listings with entry IDs, publisher URLs and Feedly IoC status."""
 
 from __future__ import annotations
 

@@ -31,6 +31,10 @@ def render(
         return
     items = article_items(value)
     lowered = command.lower()
+    if lowered == "search" and isinstance(value, dict) and value.get("items") == []:
+        create_console(stream).print(literal("No articles found."))
+        render_article_summary(value, [], stream)
+        return
     if lowered in {"boards", "folders", "feeds"} and action == "list":
         render_listing(listing_items(value, lowered), lowered, stream)
         return

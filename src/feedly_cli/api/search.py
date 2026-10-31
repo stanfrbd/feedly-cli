@@ -8,6 +8,7 @@ from feedly_cli.errors import FeedlyError
 
 from .articles import ArticleAPI
 from .discovery import DiscoveryAPI
+from .search_dates import filter_search_dates, validate_search_dates
 from .transport import APITransport
 
 
@@ -30,7 +31,10 @@ class SearchAPI:
         *,
         stream_id: str | None = None,
         salience: str = "mention",
+        since: int | None = None,
+        before: int | None = None,
     ) -> Any:
+        validate_search_dates(since, before)
         params: dict[str, Any] = {"count": count}
         if continuation is not None:
             params["continuation"] = continuation
@@ -49,9 +53,12 @@ class SearchAPI:
             source_stream = stream_id or self.discovery.default_enterprise_stream()
             if source_stream:
                 body["source"] = {"items": [{"type": "stream", "id": source_stream}]}
-        return self.transport.request(
+        result = self.transport.request(
             "/v3/search/contents", method="post", params=params, data=body
         )
+        if since is not None or before is not None:
+            return filter_search_dates(result, since, before)
+        return result
 
     def search_all(
         self,
@@ -61,7 +68,11 @@ class SearchAPI:
         stream_id: str | None = None,
         fetch: bool = False,
         salience: str = "mention",
+        *,
+        since: int | None = None,
+        before: int | None = None,
     ) -> Any:
+        validate_search_dates(since, before)
         if not 1 <= count <= 100:
             raise FeedlyError("bad_request", "Search count must be between 1 and 100.")
         if not 1 <= max_pages <= 100:
@@ -79,6 +90,8 @@ class SearchAPI:
                 continuation=continuation,
                 stream_id=stream_id,
                 salience=salience,
+                since=since,
+                before=before,
             )
             pages += 1
             if not isinstance(page, dict):
