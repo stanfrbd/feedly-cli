@@ -21,6 +21,8 @@ The [customer script](https://github.com/feedly/sample-customer-scripts/blob/mai
 
 ## URL resolution
 
+Multiple distinct matching IDs on the first matching page remain an ambiguity error (`api_error`, exit 6), including for `boards add-url`; no candidate is selected or written automatically. Error details include the sorted, deduplicated `matchingEntryIds` list, `matchingEntries` count and `pagesScanned`. Human-readable errors show complete, copyable candidate IDs. These candidates cover that page only, not unscanned pages or other streams.
+
 The current board API accepts article IDs. `articles resolve-url` performs a read-only bounded stream scan and returns `entryId`, the requested `url`, `streamId` and `pagesScanned`. `boards add-url` reuses this resolver before submitting its article ID, preserving its existing dry-run response. Both match `canonicalUrl`, `url` or `alternate.href` exactly without URL normalization or external ingestion. Use a source stream containing the article for predictable resolution. Exhaustion without a match is `not_found`, not global absence; a page-limit hit with more entries is an incomplete `api_error` containing a continuation in error details. `articles resolve-url --continuation TOKEN` resumes within the same source/URL. Malformed pages, invalid matching IDs and repeated continuation tokens fail explicitly. `boards add-url --dry-run` resolves the ID without writing to the board.
 
 ## Monitoring

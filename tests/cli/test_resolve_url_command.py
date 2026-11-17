@@ -69,6 +69,29 @@ def test_resolver_incomplete_error_exposes_resume_in_json(run_cli, client):
     assert json.loads(err)["error"]["details"]["continuation"] == "next"
 
 
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_resolver_ambiguity_exposes_copyable_ids(monkeypatch, capsys, client, json_mode):
+    entry_ids = ["entry/" + "abcdef" * 30, "entry/" + "uvwxyz" * 30]
+    details = {"pagesScanned": 6, "matchingEntries": 2, "matchingEntryIds": entry_ids}
+    client.resolve_article_url.side_effect = FeedlyError(
+        "api_error", "URL resolution is ambiguous.", details=details
+    )
+    monkeypatch.setattr(cli.app, "create_client", lambda: client)
+    monkeypatch.setenv("COLUMNS", "40")
+    args = ["articles", "resolve-url", "https://example.test/article"]
+    if json_mode:
+        args.append("--json")
+    assert cli.main(args) == 6
+    captured = capsys.readouterr()
+    assert not captured.out
+    if json_mode:
+        assert json.loads(captured.err)["error"]["details"] == details
+    else:
+        assert "Matching entry IDs" in captured.err
+        assert all(f"  {entry_id}\n" in captured.err for entry_id in entry_ids)
+    client.add_url_to_board.assert_not_called()
+
+
 @pytest.mark.parametrize("command", ["articles", "boards"])
 @pytest.mark.parametrize(
     "url",

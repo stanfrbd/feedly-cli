@@ -113,8 +113,12 @@ def resolve_url(
             raise FeedlyError(
                 "api_error",
                 "Multiple Feedly entry IDs match the exact URL on this page; "
-                "resolution is ambiguous. Select a narrower source stream.",
-                details={"pagesScanned": pages_scanned, "matchingEntries": len(matching_ids)},
+                "resolution is ambiguous. Select a matching entry ID or a narrower source stream.",
+                details={
+                    "pagesScanned": pages_scanned,
+                    "matchingEntries": len(matching_ids),
+                    "matchingEntryIds": sorted(matching_ids),
+                },
             )
         if matching_ids:
             return {

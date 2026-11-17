@@ -100,7 +100,12 @@ def render(
     create_console(stream).print(literal(value))
 
 
-def render_error(code: str, message: str, stream: Any = None) -> None:
+def render_error(code: str, message: str, stream: Any = None, *, details: Any = None) -> None:
     """Render a readable literal error without interpreting terminal markup."""
-    console = create_console(stream if stream is not None else sys.stderr)
+    target = stream if stream is not None else sys.stderr
+    console = create_console(target)
     console.print(Text.assemble((f"Error [{clean_text(code)}]: ", "bold"), literal(message)))
+    if isinstance(details, dict) and isinstance(details.get("matchingEntryIds"), list):
+        target.write("Matching entry IDs (on this page):\n")
+        for entry_id in details["matchingEntryIds"]:
+            target.write(f"  {clean_line(entry_id)}\n")

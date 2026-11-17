@@ -50,7 +50,7 @@ def write_error(
     if json_output:
         write_json({"error": error}, stream=sys.stderr)
     else:
-        output.render_error(code, message, stream=sys.stderr)
+        output.render_error(code, message, stream=sys.stderr, details=details)
     return exit_code
 
 

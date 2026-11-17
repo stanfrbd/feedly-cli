@@ -131,13 +131,25 @@ def test_ambiguous_same_page_ids_fail_never_write(client, api_http, add_api_resp
         api_http,
         responses.GET,
         "/v3/streams/contents",
-        {"items": [{"id": "one", "canonicalUrl": url}, {"id": "two", "url": url}]},
+        {
+            "items": [
+                {"id": "two", "url": url},
+                {"id": "one", "canonicalUrl": url},
+                {"id": "one", "alternate": [{"href": url}]},
+                {"id": "other", "url": url + "&other=1"},
+            ]
+        },
     )
-    with pytest.raises(FeedlyError, match="ambiguous"):
+    with pytest.raises(FeedlyError, match="ambiguous") as caught:
         if board:
             client.add_url_to_board("board", url, stream_id="source")
         else:
             client.resolve_article_url(url, stream_id="source")
+    assert caught.value.details == {
+        "pagesScanned": 1,
+        "matchingEntries": 2,
+        "matchingEntryIds": ["one", "two"],
+    }
     assert all(call.request.method == "GET" for call in api_http.calls)
 
 
