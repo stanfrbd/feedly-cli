@@ -6,7 +6,13 @@ A small Python command-line interface for Feedly. Read results in the terminal, 
 
 Requires Python 3.10 or newer. The CLI uses the official `feedly-client` Python package, Rich for terminal output, and markdownify for HTML-to-Markdown conversion.
 
-Install into the current Python environment:
+Install from GitHub directly:
+
+```sh
+pip install git+https://github.com/stanfrbd/feedly-cli.git
+```
+
+Install into the current Python environment (from a local clone):
 
 ```sh
 python -m pip install -e .
